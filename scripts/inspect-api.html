@@ -1,0 +1,108 @@
+<!doctype html>
+<!--
+  scripts/inspect-api.html
+  Eigenstaendiges HTML, das opencascade.js direkt im Main-Thread laedt und
+  alle relevanten Symbole listet. Nuetzlich wenn du die App noch nicht laeuft,
+  oder wenn du auf einen Schlag deine API-Snapshot-Datei erzeugen willst.
+
+  Nutzung:
+    1. `npm run dev`
+    2. Im Browser: http://localhost:5173/scripts/inspect-api.html
+    3. Tabelle wird angezeigt; Inhalt kopieren in docs/oc-api-snapshot.md
+-->
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>OpenCascade.js – API Inspektion</title>
+    <style>
+      body { font-family: ui-monospace, monospace; padding: 24px; background: #1a1d24; color: #d8dde6; }
+      h1 { color: #8ab4ff; font-size: 18px; }
+      h2 { color: #fff; font-size: 14px; margin-top: 24px; padding-bottom: 4px; border-bottom: 1px solid #333; }
+      pre { background: #0f1116; padding: 10px 14px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+      .ok { color: #6dd47e; }
+      .err { color: #f08080; }
+      .meta { color: #888; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>OpenCascade.js – API Inspektion</h1>
+    <div id="status" class="meta">lade...</div>
+    <div id="out"></div>
+
+    <script type="module">
+      const PREFIXES = [
+        'BRepPrimAPI_MakeBox',
+        'BRepPrimAPI_MakeCylinder',
+        'BRepPrimAPI_MakeSphere',
+        'BRepAlgoAPI_Cut',
+        'BRepAlgoAPI_Fuse',
+        'BRepAlgoAPI_Common',
+        'BRepFilletAPI_MakeFillet',
+        'BRepFilletAPI_MakeChamfer',
+        'STEPControl_Reader',
+        'STEPControl_Writer',
+        'Message_ProgressRange',
+        'BRepMesh_IncrementalMesh',
+        'TopExp_Explorer',
+        'gp_Pnt',
+        'gp_Dir',
+        'gp_Ax2',
+        'gp_Trsf',
+        'BRep_Tool',
+        'Poly_Triangulation',
+        'Bnd_Box',
+        'BRepBndLib',
+        'IFSelect_ReturnStatus',
+        'TopoDS',
+        'TopAbs_',
+        'TopLoc_Location',
+      ];
+
+      const status = document.getElementById('status');
+      const out = document.getElementById('out');
+
+      try {
+        status.textContent = 'lade opencascade.js (das WASM ist ~30 MB, kann dauern)...';
+        const mod = await import('/node_modules/opencascade.js/dist/opencascade.full.js');
+        // Wenn der obige Pfad nicht klappt, alternativ:
+        // const mod = await import('opencascade.js');
+        const init = mod.default ?? mod;
+        const oc = await init();
+        status.innerHTML = `<span class="ok">geladen</span>. Gesamtzahl exportierter Symbole: ${Object.keys(oc).length}`;
+
+        for (const prefix of PREFIXES) {
+          const keys = Object.keys(oc).filter((k) => k.startsWith(prefix)).sort();
+          const section = document.createElement('section');
+          section.innerHTML = `
+            <h2>${prefix}* (${keys.length})</h2>
+            <pre>${keys.map((k) => '  ' + k).join('\n') || '  (keine Treffer)'}</pre>
+          `;
+          out.appendChild(section);
+        }
+
+        // Methoden einiger Schluessel-Objekte
+        const introspectMethods = (name, ctor) => {
+          try {
+            const inst = ctor();
+            const proto = Object.getPrototypeOf(inst);
+            const methods = Object.getOwnPropertyNames(proto).sort();
+            const section = document.createElement('section');
+            section.innerHTML = `<h2>${name} – Methoden</h2><pre>${methods.map((m) => '  ' + m).join('\n')}</pre>`;
+            out.appendChild(section);
+            try { inst.delete(); } catch {}
+          } catch (e) {
+            const section = document.createElement('section');
+            section.innerHTML = `<h2>${name} – Methoden</h2><pre class="err">  konnte nicht inspiziert werden: ${e.message}</pre>`;
+            out.appendChild(section);
+          }
+        };
+
+        introspectMethods('BRepPrimAPI_MakeBox_2', () => new oc.BRepPrimAPI_MakeBox_2(10, 10, 10));
+        introspectMethods('STEPControl_Reader_1', () => new oc.STEPControl_Reader_1());
+      } catch (e) {
+        status.innerHTML = `<span class="err">Fehler: ${e.message}</span>`;
+        console.error(e);
+      }
+    </script>
+  </body>
+</html>
