@@ -14,8 +14,13 @@ import { useUiStore } from './state/uiStore';
 import { useGraphStore } from './state/graphStore';
 import { ConfiguratorView } from './components/ConfiguratorView';
 import { applySharedDocument, decodeShareUrl } from './storage/shareEncoding';
+import { clearGraphCache } from './graph/graphExecution';
+import { parseUrlParams, buildGraphFromMaterialParams } from './utils/urlParams';
+import { usePostMessage } from './utils/usePostMessage';
 
 export default function App() {
+  usePostMessage();
+
   // Kernel beim Mount initialisieren + Assets aus IndexedDB hydrieren
   useEffect(() => {
     // Assets sofort hydrieren - parallel zum Kernel
@@ -33,6 +38,22 @@ export default function App() {
       .then(() => {
         useStatusStore.getState().setKernel('ready');
         useStatusStore.getState().log('info', 'Kernel bereit.');
+
+        // URL-Material-Parameter anwenden (nur wenn kein share= vorhanden)
+        if (!window.location.hash.includes('share=')) {
+          const matParams = parseUrlParams();
+          if (matParams) {
+            clearGraphCache();
+            const doc = buildGraphFromMaterialParams(matParams);
+            useGraphStore.getState().setDoc(doc);
+            if (matParams.mode === 'configurator') {
+              useUiStore.getState().setMode('configurator');
+            }
+            useGraphStore.getState().run().catch(console.error);
+            useStatusStore.getState().log('info', `Material geladen: ${matParams.material ?? '—'}`);
+          }
+        }
+
         // NACH Kernel-Init: ggf. shared URL anwenden
         tryLoadFromUrl().catch((e) => {
           // eslint-disable-next-line no-console
