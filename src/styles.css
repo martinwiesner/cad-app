@@ -129,6 +129,35 @@ body {
   font-family: var(--mono);
   margin-right: 4px;
 }
+.toolbar__mobile-only { display: none; }
+.toolbar__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  overflow: hidden;
+}
+.toolbar__dropdown-item {
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: var(--sans);
+  color: var(--ink-0);
+  cursor: pointer;
+}
+.toolbar__dropdown-item:last-child { border-bottom: none; }
+.toolbar__dropdown-item:hover { background: var(--bg-2); }
+.toolbar__dropdown-item--primary { color: var(--accent); font-weight: 600; }
 .brand {
   font-family: var(--mono);
   font-size: 13px;
@@ -1440,16 +1469,21 @@ canvas { display: block; }
      Editor-Ansicht (minimale Anpassungen — kein perfektes Mobile-UI)
      ----------------------------------------------------------------------- */
 
-  /* 3-Spalten-Grid → alles vertikal stapeln */
-  .app__main {
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-  }
-  /* Palette ausblenden — Drag-and-Drop geht auf Touch sowieso nicht */
-  .app__palette { display: none; }
+  /* Desktop-only Gruppen verstecken, Mobile-only zeigen */
+  .toolbar__desktop-only { display: none !important; }
+  .toolbar__mobile-only  { display: flex !important; }
 
-  /* Editor + Viewer nebeneinander → übereinander, je ~40vh */
+  /* Toolbar kompakter */
+  .toolbar { gap: 8px; padding: 8px 10px; flex-wrap: wrap; }
+  .toolbar__group--brand { border-right: none; padding-right: 0; margin-right: 0; }
+  .brand { font-size: 12px; }
+  .status-pill { font-size: 10px; padding: 2px 6px; }
+  .toolbar__group--actions { margin-left: 0; flex-wrap: wrap; gap: 6px; }
+  .toolbar__group--actions .btn { padding: 5px 8px; font-size: 11px; }
+
+  /* 3-Spalten-Grid → vertikal stapeln */
+  .app__main { display: flex; flex-direction: column; overflow-y: auto; }
+  .app__palette { display: none; }
   .app__center {
     display: flex;
     flex-direction: column;
@@ -1460,7 +1494,8 @@ canvas { display: block; }
   .app__editor { flex: 1; min-height: 0; }
   .app__viewer { flex: 1; min-height: 0; }
 
-  /* Node-Eigenschaften: volle Breite, kompakter, unterhalb des Viewers */
+  /* Node-Eigenschaften: nur zeigen wenn Node gewählt, sonst verstecken */
+  .app__props:has(.props__empty) { display: none; }
   .app__props {
     border-left: none;
     border-top: 1px solid var(--border);

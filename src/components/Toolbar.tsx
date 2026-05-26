@@ -194,6 +194,20 @@ export function Toolbar() {
   };
 
   const [shareOpen, setShareOpen] = useState(false);
+  const [showExamples, setShowExamples] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+
+  const exampleItems = [
+    { label: 'Box', fn: exampleSimpleBox },
+    { label: 'Union', fn: exampleUnion },
+    { label: 'Intersection', fn: exampleIntersection },
+    { label: 'Platte + Bohrung + Fase', fn: exampleBoxWithHole, primary: true },
+    { label: 'Edge-Pick Demo', fn: exampleSelectiveFillet },
+    { label: 'Regalbrett', fn: exampleShelfBoard },
+    { label: 'Polygon-Extrusion', fn: exampleHousePolygon },
+    { label: 'Holzplatte', fn: exampleWoodPlate },
+    { label: '3 Körper', fn: exampleMultiPreview },
+  ];
 
   return (
     <div className="toolbar">
@@ -203,61 +217,62 @@ export function Toolbar() {
         <ComputeBadge state={compute} ms={lastMs} />
       </div>
 
-      <div className="toolbar__group">
+      {/* Desktop: alle Beispiele inline */}
+      <div className="toolbar__group toolbar__desktop-only">
         <span className="toolbar__label">Beispiele:</span>
-        <button className="btn" onClick={() => loadExample(exampleSimpleBox)}>Box</button>
-        <button className="btn" onClick={() => loadExample(exampleUnion)}>Union</button>
-        <button className="btn" onClick={() => loadExample(exampleIntersection)}>Intersection</button>
-        <button className="btn btn--primary" onClick={() => loadExample(exampleBoxWithHole)}>
-          Platte + Bohrung + Fase
-        </button>
-        <button className="btn" onClick={() => loadExample(exampleSelectiveFillet)}>
-          Edge-Pick Demo
-        </button>
-        <button className="btn" onClick={() => loadExample(exampleShelfBoard)}>
-          Regalbrett
-        </button>
-        <button className="btn" onClick={() => loadExample(exampleHousePolygon)}>
-          Polygon-Extrusion
-        </button>
-        <button className="btn" onClick={() => loadExample(exampleWoodPlate)}>
-          Holzplatte
-        </button>
-        <button className="btn" onClick={() => loadExample(exampleMultiPreview)}>
-          3 Körper
-        </button>
+        {exampleItems.map((ex) => (
+          <button key={ex.label} className={`btn${ex.primary ? ' btn--primary' : ''}`}
+            onClick={() => loadExample(ex.fn)}>{ex.label}</button>
+        ))}
       </div>
 
-      <div className="toolbar__group">
-        <button className="btn" onClick={importSvg} disabled={kernel !== 'ready' || !!busy}>
-          📐 SVG importieren
+      {/* Desktop: Import + Export inline */}
+      <div className="toolbar__group toolbar__desktop-only">
+        <button className="btn" onClick={importSvg} disabled={kernel !== 'ready' || !!busy}>📐 SVG importieren</button>
+        <button className="btn" onClick={importStep} disabled={kernel !== 'ready' || !!busy}>📥 STEP importieren</button>
+        <button className="btn" onClick={exportStl} disabled={!hasShapes || !!busy}>⤓ STL</button>
+        <button className="btn" onClick={exportGlb} disabled={!hasShapes || !!busy}>⤓ GLB</button>
+        <button className="btn" onClick={exportStep} disabled={!hasShapes || !!busy}>⤓ STEP</button>
+      </div>
+
+      {/* Mobile: Beispiele-Dropdown */}
+      <div className="toolbar__group toolbar__mobile-only" style={{ position: 'relative' }}>
+        <button className="btn" onClick={() => { setShowExamples(v => !v); setShowExport(false); }}>
+          Beispiele {showExamples ? '▲' : '▼'}
         </button>
-        <button className="btn" onClick={importStep} disabled={kernel !== 'ready' || !!busy}>
-          📥 STEP importieren
+        {showExamples && (
+          <div className="toolbar__dropdown">
+            {exampleItems.map((ex) => (
+              <button key={ex.label} className={`toolbar__dropdown-item${ex.primary ? ' toolbar__dropdown-item--primary' : ''}`}
+                onClick={() => { loadExample(ex.fn); setShowExamples(false); }}>
+                {ex.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Mobile: Export-Dropdown */}
+      <div className="toolbar__group toolbar__mobile-only" style={{ position: 'relative' }}>
+        <button className="btn" onClick={() => { setShowExport(v => !v); setShowExamples(false); }}
+          disabled={!hasShapes || !!busy}>
+          ⤓ Export {showExport ? '▲' : '▼'}
         </button>
-        <button className="btn" onClick={exportStl} disabled={!hasShapes || !!busy}>
-          ⤓ STL
-        </button>
-        <button className="btn" onClick={exportGlb} disabled={!hasShapes || !!busy}>
-          ⤓ GLB
-        </button>
-        <button className="btn" onClick={exportStep} disabled={!hasShapes || !!busy}>
-          ⤓ STEP
-        </button>
+        {showExport && (
+          <div className="toolbar__dropdown">
+            <button className="toolbar__dropdown-item" onClick={() => { exportStl(); setShowExport(false); }}>⤓ STL</button>
+            <button className="toolbar__dropdown-item" onClick={() => { exportGlb(); setShowExport(false); }}>⤓ GLB</button>
+            <button className="toolbar__dropdown-item" onClick={() => { exportStep(); setShowExport(false); }}>⤓ STEP</button>
+          </div>
+        )}
       </div>
 
       <div className="toolbar__group toolbar__group--actions">
-        <button className="btn" onClick={() => setShareOpen(true)} title="Konfigurator-URL erzeugen">
-          🔗 Teilen
-        </button>
+        <button className="btn" onClick={() => setShareOpen(true)}>🔗 Teilen</button>
         <ConfiguratorToggle />
         <button className="btn" onClick={importProject}>📂 Laden</button>
         <button className="btn" onClick={exportProject}>💾 Speichern</button>
-        <button className="btn btn--ghost" onClick={() => {
-          clearGraphCache();
-          reset();
-          useViewerStore.getState().clear();
-        }}>
+        <button className="btn btn--ghost" onClick={() => { clearGraphCache(); reset(); useViewerStore.getState().clear(); }}>
           ✕ Leer
         </button>
       </div>
