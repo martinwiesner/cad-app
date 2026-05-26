@@ -36,6 +36,11 @@ interface GraphState {
   reorderPublishedParam: (id: string, newIndex: number) => void;
   isPublished: (nodeId: string, paramKey: string) => PublishedParam | undefined;
 
+  // Veroeffentlichte Nodes (Konfigurator-Sichtbarkeit)
+  publishNode: (nodeId: string) => void;
+  unpublishNode: (nodeId: string) => void;
+  isNodePublished: (nodeId: string) => boolean;
+
   run: () => Promise<void>;
   runDebounced: () => void;
 }
@@ -236,6 +241,24 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     return (get().doc.publishedParams ?? []).find(
       (p) => p.nodeId === nodeId && p.paramKey === paramKey,
     );
+  },
+
+  publishNode: (nodeId) => {
+    set((s) => {
+      const list = s.doc.publishedNodes ?? [];
+      if (list.includes(nodeId)) return s;
+      return { doc: { ...s.doc, publishedNodes: [...list, nodeId] } };
+    });
+  },
+
+  unpublishNode: (nodeId) => {
+    set((s) => ({
+      doc: { ...s.doc, publishedNodes: (s.doc.publishedNodes ?? []).filter((id) => id !== nodeId) },
+    }));
+  },
+
+  isNodePublished: (nodeId) => {
+    return (get().doc.publishedNodes ?? []).includes(nodeId);
   },
 
   run: async () => {

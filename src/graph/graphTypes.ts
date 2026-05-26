@@ -85,9 +85,11 @@ export interface GraphDocument {
   edges: GraphEdge[];
   /** Veroeffentlichte Parameter fuer den Konfigurator-Modus. */
   publishedParams?: PublishedParam[];
+  /** IDs der Preview-Nodes, die im Konfigurator sichtbar sind. Leer = alle zeigen. */
+  publishedNodes?: string[];
   meta?: { name?: string; createdAt?: string; updatedAt?: string };
 }
 
 export function emptyGraph(): GraphDocument {
-  return { version: 1, units: 'mm', nodes: [], edges: [], publishedParams: [] };
+  return { version: 1, units: 'mm', nodes: [], edges: [], publishedParams: [], publishedNodes: [] };
 }

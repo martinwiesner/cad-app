@@ -175,9 +175,12 @@ function PickableEdge({ edge, selected, hovered, onClick, onPointerOver, onPoint
 // ===========================================================================
 //   Viewer Hauptkomponente
 // ===========================================================================
-export function CadViewer() {
+export function CadViewer({ visibleIds }: { visibleIds?: Set<string> } = {}) {
   const meshesMap = useViewerStore((s) => s.meshes);
-  const meshes = useMemo(() => [...meshesMap.values()], [meshesMap]);
+  const meshes = useMemo(() => {
+    const all = [...meshesMap.values()];
+    return visibleIds && visibleIds.size > 0 ? all.filter((m) => visibleIds.has(m.id)) : all;
+  }, [meshesMap, visibleIds]);
   const pickingNodeId = useSelectionStore((s) => s.pickingNodeId);
   const stopPicking = useSelectionStore((s) => s.stopPicking);
 

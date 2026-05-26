@@ -20,6 +20,11 @@ export function ConfiguratorView() {
   const kernel = useStatusStore((s) => s.kernel);
   const compute = useStatusStore((s) => s.compute);
 
+  const visibleIds = useMemo(() => {
+    const ids = doc.publishedNodes ?? [];
+    return ids.length > 0 ? new Set(ids) : undefined;
+  }, [doc.publishedNodes]);
+
   const published = useMemo(() => {
     const list = [...(doc.publishedParams ?? [])].sort((a, b) => a.order - b.order);
     return list;
@@ -122,7 +127,7 @@ export function ConfiguratorView() {
         </aside>
 
         <section className="configurator__viewer">
-          <CadViewer />
+          <CadViewer visibleIds={visibleIds} />
         </section>
       </main>
     </div>

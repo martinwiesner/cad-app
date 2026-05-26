@@ -30,6 +30,7 @@ export function PropertiesPanel() {
       <div className="props__header">
         <span className="props__type">{spec.category}</span>
         <span className="props__title">{spec.label}</span>
+        {node.type === 'preview' && <NodeVisibilityToggle nodeId={node.id} />}
       </div>
       <div className="props__id">id: {node.id}</div>
 
@@ -117,6 +118,28 @@ function PublishToggle({
         />
       )}
     </>
+  );
+}
+
+function NodeVisibilityToggle({ nodeId }: { nodeId: string }) {
+  const publishNode = useGraphStore((s) => s.publishNode);
+  const unpublishNode = useGraphStore((s) => s.unpublishNode);
+  const isPublished = useGraphStore((s) => s.isNodePublished(nodeId));
+  const anyPublished = useGraphStore((s) => (s.doc.publishedNodes ?? []).length > 0);
+
+  if (isPublished) {
+    return (
+      <button className="publish-toggle publish-toggle--on" title="Aus Konfigurator ausblenden"
+        onClick={() => unpublishNode(nodeId)}>
+        ★ im Konfigurator sichtbar
+      </button>
+    );
+  }
+  return (
+    <button className="publish-toggle" title="Im Konfigurator anzeigen"
+      onClick={() => publishNode(nodeId)}>
+      {anyPublished ? '☆ ausgeblendet' : '☆ im Konfigurator zeigen'}
+    </button>
   );
 }
 
