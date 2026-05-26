@@ -839,6 +839,7 @@ canvas { display: block; }
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   background: var(--bg-0);
 }
 .configurator__header {
@@ -896,6 +897,7 @@ canvas { display: block; }
   position: relative;
   min-height: 0;
   background: var(--bg-2);
+  touch-action: none;
 }
 .configurator__group { margin-bottom: 22px; }
 .configurator__group-title {
@@ -1367,4 +1369,70 @@ canvas { display: block; }
   color: var(--ink-2);
   margin-bottom: 6px;
   padding: 0 2px;
+}
+
+/* =========================================================================
+   Mobile — Konfigurator-Ansicht (≤ 640 px)
+   Der Graph-Editor ist auf Mobil bewusst nicht optimiert.
+   ========================================================================= */
+@media (max-width: 640px) {
+
+  /* --- Header: von einer Zeile auf zwei Zeilen umbrechen --- */
+  .configurator__header {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 10px 14px;
+  }
+  .configurator__title strong { font-size: 16px; }
+  .configurator__subtitle { display: none; }
+  .configurator__status { margin-left: 0; }
+  .configurator__actions {
+    margin-left: 0;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+  .configurator__actions .btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+
+  /* --- Hauptlayout: Viewer oben, Parameter unten (statt nebeneinander) --- */
+  .configurator__main {
+    display: flex;
+    flex-direction: column;
+  }
+  .configurator__viewer {
+    flex: 0 0 45vh;
+    min-height: 220px;
+  }
+  .configurator__sidebar {
+    flex: 1;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 14px;
+  }
+
+  /* --- Parameter: Touch-freundlich --- */
+  .cfg-param { margin-bottom: 18px; padding-bottom: 16px; }
+  .cfg-param__label { font-size: 15px; }
+  .cfg-param__value input {
+    width: 76px;
+    padding: 7px 9px;
+    font-size: 16px; /* verhindert iOS-Zoom beim Antippen */
+    border-radius: 4px;
+  }
+  .cfg-param__slider {
+    height: 6px;
+    margin-top: 4px;
+    cursor: pointer;
+  }
+  .cfg-param__desc { font-size: 12px; }
+
+  /* --- Konfigurator-Gruppe --- */
+  .configurator__group { margin-bottom: 18px; }
+  .configurator__group-title { font-size: 10.5px; margin-bottom: 12px; }
 }
