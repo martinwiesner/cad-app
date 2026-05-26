@@ -1435,4 +1435,44 @@ canvas { display: block; }
   /* --- Konfigurator-Gruppe --- */
   .configurator__group { margin-bottom: 18px; }
   .configurator__group-title { font-size: 10.5px; margin-bottom: 12px; }
+
+  /* -----------------------------------------------------------------------
+     Editor-Ansicht (minimale Anpassungen — kein perfektes Mobile-UI)
+     ----------------------------------------------------------------------- */
+
+  /* 3-Spalten-Grid → alles vertikal stapeln */
+  .app__main {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  /* Palette ausblenden — Drag-and-Drop geht auf Touch sowieso nicht */
+  .app__palette { display: none; }
+
+  /* Editor + Viewer nebeneinander → übereinander, je ~40vh */
+  .app__center {
+    display: flex;
+    flex-direction: column;
+    height: 80vmax;
+    min-height: 400px;
+    flex-shrink: 0;
+  }
+  .app__editor { flex: 1; min-height: 0; }
+  .app__viewer { flex: 1; min-height: 0; }
+
+  /* Node-Eigenschaften: volle Breite, kompakter, unterhalb des Viewers */
+  .app__props {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    max-height: 40vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .props__header  { padding: 8px 12px 4px; }
+  .props__title   { font-size: 12px; }
+  .props__list    { padding: 8px 10px; gap: 6px; }
+  .props__id      { padding: 3px 12px 6px; font-size: 10px; }
+
+  /* MiniMap und dessen Resize-Handle verstecken */
+  .react-flow__minimap { display: none !important; }
 }
