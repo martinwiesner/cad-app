@@ -28,6 +28,9 @@ export function ConfiguratorView() {
       .catch(() => setArSupported(false));
   }, []);
 
+  // Mobile bottom-sheet: zugeklappt by default
+  const [sheetOpen, setSheetOpen] = useState(false);
+
   // Collapsible groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toggleGroup = (name: string) =>
@@ -138,8 +141,16 @@ export function ConfiguratorView() {
           )}
         </section>
 
-        {/* Parameter-Sidebar — schwebt als Glas-Panel über dem Viewer */}
-        <aside className="configurator__sidebar">
+        {/* Parameter-Sidebar — Desktop: Glas-Panel links / Mobile: Bottom-Sheet */}
+        <aside className={`configurator__sidebar${sheetOpen ? ' configurator__sidebar--open' : ''}`}>
+          {/* Handle — nur auf Mobile sichtbar */}
+          <button className="cfg-sheet-handle" onClick={() => setSheetOpen(v => !v)}>
+            <span className="cfg-sheet-handle__label">
+              {published.length > 0 ? `${published.length} Parameter` : 'Parameter'}
+            </span>
+            <span className="cfg-chevron">{sheetOpen ? '▼' : '▲'}</span>
+          </button>
+          <div className="cfg-sheet-content">
           {published.length === 0 ? (
             <div className="configurator__empty">
               <strong>Noch keine Parameter veröffentlicht.</strong>
@@ -171,6 +182,7 @@ export function ConfiguratorView() {
               );
             })
           )}
+          </div>{/* cfg-sheet-content */}
         </aside>
 
       </main>
