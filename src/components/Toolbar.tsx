@@ -26,7 +26,7 @@ export function Toolbar() {
   const loadExample = (doc: typeof exampleBoxWithHole) => {
     clearGraphCache();
     setDoc(structuredClone(doc));
-    run().catch(console.error);
+    run().then(() => useViewerStore.getState().requestFitView()).catch(console.error);
   };
 
   const exportProject = () => {

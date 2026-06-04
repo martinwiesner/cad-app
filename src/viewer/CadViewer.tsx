@@ -173,6 +173,63 @@ function PickableEdge({ edge, selected, hovered, onClick, onPointerOver, onPoint
 }
 
 // ===========================================================================
+//   Camera setup — Z als Hochachse (OCCT-Konvention)
+// ===========================================================================
+function SceneSetup() {
+  const { camera } = useThree();
+  useEffect(() => {
+    camera.up.set(0, 0, 1);
+  }, [camera]);
+  return null;
+}
+
+// ===========================================================================
+//   fitCamera — Bounding-Box berechnen und Kamera ausrichten (Z-up)
+// ===========================================================================
+function fitCamera(
+  camera: THREE.Camera,
+  controlsRef: React.RefObject<any>,
+  meshes: ViewerMesh[],
+) {
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (const m of meshes) {
+    const pos = m.data.positions;
+    for (let i = 0; i < pos.length; i += 3) {
+      const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+      if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    }
+  }
+  if (!isFinite(minX)) return;
+
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const cz = (minZ + maxZ) / 2;
+  const diag = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1);
+  const dist = diag * 1.8;
+
+  const dx = camera.position.x - cx;
+  const dy = camera.position.y - cy;
+  const dz = camera.position.z - cz;
+  const len = Math.hypot(dx, dy, dz) || 1;
+  const nx = dx / len, ny = dy / len, nz = dz / len;
+
+  // Z ist Hochachse — sicherstellen dass Kamera von oben schaut
+  camera.position.set(
+    cx + nx * dist,
+    cy + ny * dist,
+    cz + Math.max(nz * dist, diag * 0.25),
+  );
+
+  if (controlsRef.current) {
+    controlsRef.current.target.set(cx, cy, cz);
+    controlsRef.current.update();
+  }
+}
+
+// ===========================================================================
 //   FitViewController — läuft innerhalb des Canvas, reagiert auf Store-Events
 // ===========================================================================
 function FitViewController({
@@ -184,47 +241,22 @@ function FitViewController({
 }) {
   const { camera } = useThree();
   const fitViewRequest = useViewerStore((s) => s.fitViewRequest);
+  const prevMeshCountRef = useRef(0);
 
+  // Automatischer Fit sobald neue Meshes hinzukommen (Share-Link, neues Preview, Beispiel laden)
+  useEffect(() => {
+    const count = meshes.length;
+    if (count > prevMeshCountRef.current) {
+      fitCamera(camera, controlsRef, meshes);
+    }
+    prevMeshCountRef.current = count;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meshes.length]);
+
+  // Expliziter Fit über Button / requestFitView()
   useEffect(() => {
     if (fitViewRequest === 0 || meshes.length === 0) return;
-
-    // Bounding Box aus rohen Float32Array-Positionen berechnen
-    let minX = Infinity, minY = Infinity, minZ = Infinity;
-    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-    for (const m of meshes) {
-      const pos = m.data.positions;
-      for (let i = 0; i < pos.length; i += 3) {
-        const x = pos[i], y = pos[i + 1], z = pos[i + 2];
-        if (x < minX) minX = x; if (x > maxX) maxX = x;
-        if (y < minY) minY = y; if (y > maxY) maxY = y;
-        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
-      }
-    }
-    if (!isFinite(minX)) return;
-
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    const cz = (minZ + maxZ) / 2;
-    const diag = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1);
-    const dist = diag * 1.8;
-
-    // Richtung behalten, Distanz anpassen
-    const dx = camera.position.x - cx;
-    const dy = camera.position.y - cy;
-    const dz = camera.position.z - cz;
-    const len = Math.hypot(dx, dy, dz) || 1;
-    const nx = dx / len, ny = dy / len, nz = dz / len;
-
-    camera.position.set(
-      cx + nx * dist,
-      cy + Math.max(ny * dist, diag * 0.25),
-      cz + nz * dist,
-    );
-
-    if (controlsRef.current) {
-      controlsRef.current.target.set(cx, cy, cz);
-      controlsRef.current.update();
-    }
+    fitCamera(camera, controlsRef, meshes);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitViewRequest]);
 
@@ -248,13 +280,14 @@ export function CadViewer({ visibleIds }: { visibleIds?: Set<string> } = {}) {
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
         shadows
-        camera={{ position: [120, 100, 140], fov: 45, near: 0.001, far: 1e8 }}
+        camera={{ position: [100, -150, 80], fov: 45, near: 0.001, far: 1e8 }}
         gl={{ logarithmicDepthBuffer: true }}
         style={{ background: 'linear-gradient(180deg, #f3f5f8 0%, #dde3eb 100%)' }}
         raycaster={{
           params: { Line: { threshold: 1.5 } } as any,
         }}
       >
+        <SceneSetup />
         <ambientLight intensity={0.45} />
         <directionalLight
           position={[120, 180, 80]}
@@ -274,7 +307,8 @@ export function CadViewer({ visibleIds }: { visibleIds?: Set<string> } = {}) {
           fadeDistance={500}
           fadeStrength={1.2}
           infiniteGrid
-          position={[0, -0.01, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0, -0.01]}
         />
 
         {meshes.map((m) => (
