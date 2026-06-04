@@ -28,9 +28,6 @@ export function ConfiguratorView() {
       .catch(() => setArSupported(false));
   }, []);
 
-  // Mobile-Tab: "viewer" | "params"
-  const [mobileTab, setMobileTab] = useState<'viewer' | 'params'>('viewer');
-
   // Collapsible groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toggleGroup = (name: string) =>
@@ -123,30 +120,26 @@ export function ConfiguratorView() {
         </div>
       </header>
 
-      {/* ── Mobile tabs ── */}
-      <div className="cfg-tabs">
-        <button
-          className={`cfg-tab${mobileTab === 'viewer' ? ' cfg-tab--active' : ''}`}
-          onClick={() => setMobileTab('viewer')}
-        >
-          Modell
-        </button>
-        <button
-          className={`cfg-tab${mobileTab === 'params' ? ' cfg-tab--active' : ''}`}
-          onClick={() => setMobileTab('params')}
-        >
-          Parameter
-          {published.length > 0 && <span className="cfg-tab__badge">{published.length}</span>}
-        </button>
-      </div>
-
       {/* ── Main ── */}
       <main className="configurator__main">
 
-        {/* Parameter-Sidebar */}
-        <aside
-          className={`configurator__sidebar${mobileTab === 'viewer' ? ' cfg-hidden-mobile' : ''}`}
-        >
+        {/* 3-D Viewer — füllt den gesamten Bereich */}
+        <section className="configurator__viewer">
+          <CadViewer visibleIds={visibleIds} xrStore={xrStore} />
+          {isComputing && hasShapes && (
+            <div className="cfg-viewer-computing">
+              <span className="cfg-spinner" />
+              <span>Aktualisiere…</span>
+            </div>
+          )}
+          {hasShapes && (
+            <button className="cfg-fit-btn" title="Ansicht anpassen"
+              onClick={() => useViewerStore.getState().requestFitView()}>⊡</button>
+          )}
+        </section>
+
+        {/* Parameter-Sidebar — schwebt als Glas-Panel über dem Viewer */}
+        <aside className="configurator__sidebar">
           {published.length === 0 ? (
             <div className="configurator__empty">
               <strong>Noch keine Parameter veröffentlicht.</strong>
@@ -180,31 +173,6 @@ export function ConfiguratorView() {
           )}
         </aside>
 
-        {/* 3-D Viewer */}
-        <section
-          className={`configurator__viewer${mobileTab === 'params' ? ' cfg-hidden-mobile' : ''}`}
-        >
-          <CadViewer visibleIds={visibleIds} xrStore={xrStore} />
-
-          {/* Compute-Pulse: nur wenn bereits Shapes da sind (LoadingOverlay deckt Erstladen ab) */}
-          {isComputing && hasShapes && (
-            <div className="cfg-viewer-computing">
-              <span className="cfg-spinner" />
-              <span>Aktualisiere…</span>
-            </div>
-          )}
-
-          {/* Fit-Button im Viewer */}
-          {hasShapes && (
-            <button
-              className="cfg-fit-btn"
-              title="Ansicht anpassen"
-              onClick={() => useViewerStore.getState().requestFitView()}
-            >
-              ⊡
-            </button>
-          )}
-        </section>
       </main>
     </div>
   );

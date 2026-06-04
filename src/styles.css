@@ -927,22 +927,22 @@ canvas { display: block; }
   gap: 8px;
 }
 
-/* Mobile tab bar — hidden on desktop */
-.cfg-tabs { display: none; }
-.cfg-hidden-mobile { display: flex !important; }
-
-/* Viewer füllt den gesamten Hauptbereich — Sidebar schwebt als Glasscheibe drüber (desktop) */
+/* Viewer im normalen Flex-Flow, Sidebar als absolutes Glas-Panel darüber */
 .configurator__main {
   flex: 1;
+  display: flex;
   position: relative;
   min-height: 0;
 }
 .configurator__viewer {
-  position: absolute;
-  inset: 0;
+  flex: 1;
+  min-height: 0;
+  position: relative;
   background: var(--bg-2);
   touch-action: none;
 }
+
+/* Desktop: Glas-Panel links */
 .configurator__sidebar {
   position: absolute;
   top: 0;
@@ -1513,61 +1513,20 @@ canvas { display: block; }
    ========================================================================= */
 @media (max-width: 640px) {
 
-  /* --- Tabs: Modell / Parameter --- */
-  .cfg-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    background: #fff;
-    flex-shrink: 0;
-  }
-  .cfg-tab {
-    flex: 1;
-    padding: 10px 12px;
-    border: none;
-    background: none;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--ink-2);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-  }
-  .cfg-tab--active { color: var(--accent); border-bottom-color: var(--accent); }
-  .cfg-tab__badge {
-    background: var(--accent);
-    color: #fff;
-    border-radius: 10px;
-    padding: 1px 6px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .cfg-hidden-mobile { display: none !important; }
-
-  /* --- Hauptlayout: Tab-gesteuert, je Panel nimmt 100% --- */
-  .configurator__main { display: flex; flex-direction: column; }
-  .configurator__viewer {
-    position: relative;   /* override absolute */
-    flex: 1;
-    min-height: 0;
-    inset: auto;
-  }
+  /* --- Mobile: Sidebar als Glas-Streifen unten statt Tabs --- */
   .configurator__sidebar {
-    position: relative;   /* override absolute */
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
     width: auto;
-    flex: 1;
+    height: 210px;
     border-right: none;
-    box-shadow: none;
-    background: #fff;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    overflow-x: hidden;
     overflow-y: auto;
-    padding: 14px;
-    min-height: 0;
-    inset: auto;
-    z-index: auto;
+    padding: 12px 16px;
   }
 
   /* --- Header compact --- */
