@@ -1511,3 +1511,118 @@ canvas { display: block; }
   /* MiniMap und dessen Resize-Handle verstecken */
   .react-flow__minimap { display: none !important; }
 }
+
+/* ===========================================================================
+   Loading Overlay
+   =========================================================================== */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: linear-gradient(150deg, #f0f3f8 0%, #dde3eb 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-overlay__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  padding: 2.5rem 2rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(30, 50, 80, 0.12);
+}
+
+.loading-overlay__brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #1a2030;
+  margin-bottom: 1.75rem;
+}
+
+.loading-overlay__headline {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a2030;
+  margin-bottom: 0.4rem;
+}
+
+.loading-overlay__sub {
+  font-size: 0.75rem;
+  color: #6b7888;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  max-width: 320px;
+}
+
+/* Steps */
+.loading-overlay__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 280px;
+  margin-bottom: 1.75rem;
+  text-align: left;
+}
+
+.loading-overlay__step {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.82rem;
+  color: #9aa4b2;
+}
+
+.loading-overlay__step--active {
+  color: #1a2030;
+  font-weight: 600;
+}
+
+.loading-overlay__step--done {
+  color: #1f8a3a;
+}
+
+.loading-overlay__step-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #d8dfe8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: #9aa4b2;
+}
+
+.loading-overlay__step--active .loading-overlay__step-icon {
+  background: #2a5cb8;
+  color: #fff;
+}
+
+.loading-overlay__step--done .loading-overlay__step-icon {
+  background: #1f8a3a;
+  color: #fff;
+}
+
+/* Spinner */
+@keyframes lo-spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-overlay__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #d8dfe8;
+  border-top-color: #2a5cb8;
+  border-radius: 50%;
+  animation: lo-spin 0.75s linear infinite;
+}

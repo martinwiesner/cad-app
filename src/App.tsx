@@ -17,6 +17,7 @@ import { applySharedDocument, decodeShareUrl } from './storage/shareEncoding';
 import { clearGraphCache } from './graph/graphExecution';
 import { parseUrlParams, buildGraphFromMaterialParams } from './utils/urlParams';
 import { usePostMessage } from './utils/usePostMessage';
+import { LoadingOverlay } from './components/LoadingOverlay';
 
 export default function App() {
   usePostMessage();
@@ -83,10 +84,17 @@ export default function App() {
   const mode = useUiStore((s) => s.mode);
 
   if (mode === 'configurator') {
-    return <ConfiguratorView />;
+    return (
+      <>
+        <LoadingOverlay />
+        <ConfiguratorView />
+      </>
+    );
   }
 
   return (
+    <>
+    <LoadingOverlay />
     <div className="app">
       <header className="app__header">
         <Toolbar />
@@ -112,6 +120,7 @@ export default function App() {
         </aside>
       </main>
     </div>
+    </>
   );
 }
 
