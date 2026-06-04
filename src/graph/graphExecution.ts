@@ -452,6 +452,24 @@ async function executeNode(node: GraphNode, inputs: Record<string, unknown>, doc
       const bytes = await useAssetStore.getState().getBytes(assetId);
       if (!bytes) throw new Error(`importedStep: Asset ${assetId} nicht gefunden`);
       const h = await kernel.importStep(bytes);
+
+      // Bounding Box + Topology als Diagnose loggen
+      try {
+        const meta = await kernel.getMeta(h);
+        const { bbox, facesCount, edgesCount } = meta;
+        const sx = (bbox.max[0] - bbox.min[0]).toFixed(1);
+        const sy = (bbox.max[1] - bbox.min[1]).toFixed(1);
+        const sz = (bbox.max[2] - bbox.min[2]).toFixed(1);
+        const cx = ((bbox.min[0] + bbox.max[0]) / 2).toFixed(1);
+        const cy = ((bbox.min[1] + bbox.max[1]) / 2).toFixed(1);
+        const cz = ((bbox.min[2] + bbox.max[2]) / 2).toFixed(1);
+        useStatusStore.getState().log(
+          'info',
+          `STEP geladen: ${facesCount} Flächen, ${edgesCount} Kanten · ` +
+          `Größe ${sx}×${sy}×${sz} · Mittelpunkt (${cx}, ${cy}, ${cz})`,
+        );
+      } catch { /* Meta-Fehler nicht propagieren */ }
+
       return { values: { shape: h }, ownsShape: h };
     }
 

@@ -1,7 +1,7 @@
 // src/viewer/CadViewer.tsx
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport, Grid } from '@react-three/drei';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useViewerStore, type ViewerMesh } from '../state/viewerStore';
 import { useSelectionStore } from '../state/selectionStore';
@@ -173,6 +173,65 @@ function PickableEdge({ edge, selected, hovered, onClick, onPointerOver, onPoint
 }
 
 // ===========================================================================
+//   FitViewController — läuft innerhalb des Canvas, reagiert auf Store-Events
+// ===========================================================================
+function FitViewController({
+  controlsRef,
+  meshes,
+}: {
+  controlsRef: React.RefObject<any>;
+  meshes: ViewerMesh[];
+}) {
+  const { camera } = useThree();
+  const fitViewRequest = useViewerStore((s) => s.fitViewRequest);
+
+  useEffect(() => {
+    if (fitViewRequest === 0 || meshes.length === 0) return;
+
+    // Bounding Box aus rohen Float32Array-Positionen berechnen
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (const m of meshes) {
+      const pos = m.data.positions;
+      for (let i = 0; i < pos.length; i += 3) {
+        const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+      }
+    }
+    if (!isFinite(minX)) return;
+
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const cz = (minZ + maxZ) / 2;
+    const diag = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1);
+    const dist = diag * 1.8;
+
+    // Richtung behalten, Distanz anpassen
+    const dx = camera.position.x - cx;
+    const dy = camera.position.y - cy;
+    const dz = camera.position.z - cz;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const nx = dx / len, ny = dy / len, nz = dz / len;
+
+    camera.position.set(
+      cx + nx * dist,
+      cy + Math.max(ny * dist, diag * 0.25),
+      cz + nz * dist,
+    );
+
+    if (controlsRef.current) {
+      controlsRef.current.target.set(cx, cy, cz);
+      controlsRef.current.update();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitViewRequest]);
+
+  return null;
+}
+
+// ===========================================================================
 //   Viewer Hauptkomponente
 // ===========================================================================
 export function CadViewer({ visibleIds }: { visibleIds?: Set<string> } = {}) {
@@ -183,15 +242,16 @@ export function CadViewer({ visibleIds }: { visibleIds?: Set<string> } = {}) {
   }, [meshesMap, visibleIds]);
   const pickingNodeId = useSelectionStore((s) => s.pickingNodeId);
   const stopPicking = useSelectionStore((s) => s.stopPicking);
+  const controlsRef = useRef<any>(null);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
         shadows
-        camera={{ position: [120, 100, 140], fov: 45, near: 0.1, far: 5000 }}
+        camera={{ position: [120, 100, 140], fov: 45, near: 0.001, far: 1e8 }}
+        gl={{ logarithmicDepthBuffer: true }}
         style={{ background: 'linear-gradient(180deg, #f3f5f8 0%, #dde3eb 100%)' }}
         raycaster={{
-          // Edge-Raycast braucht Toleranz - sonst sind die Linien zu duenn fuers Picken
           params: { Line: { threshold: 1.5 } } as any,
         }}
       >
@@ -224,7 +284,8 @@ export function CadViewer({ visibleIds }: { visibleIds?: Set<string> } = {}) {
           </group>
         ))}
 
-        <OrbitControls makeDefault enableDamping dampingFactor={0.12} />
+        <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.12} />
+        <FitViewController controlsRef={controlsRef} meshes={meshes} />
         <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
           <GizmoViewport axisColors={['#d24', '#2c5', '#28e']} labelColor="#222" />
         </GizmoHelper>

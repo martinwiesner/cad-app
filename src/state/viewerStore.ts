@@ -16,14 +16,17 @@ export interface ViewerMesh {
 
 interface ViewerState {
   meshes: Map<string, ViewerMesh>;
+  fitViewRequest: number;
   setMesh: (m: ViewerMesh) => void;
   setMeshEdges: (id: string, edges: EdgeData[]) => void;
   removeMesh: (id: string) => void;
   clear: () => void;
+  requestFitView: () => void;
 }
 
 export const useViewerStore = create<ViewerState>((set) => ({
   meshes: new Map(),
+  fitViewRequest: 0,
   setMesh: (m) =>
     set((s) => {
       const next = new Map(s.meshes);
@@ -45,4 +48,5 @@ export const useViewerStore = create<ViewerState>((set) => ({
       return { meshes: next };
     }),
   clear: () => set({ meshes: new Map() }),
+  requestFitView: () => set((s) => ({ fitViewRequest: s.fitViewRequest + 1 })),
 }));
