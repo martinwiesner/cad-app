@@ -1,5 +1,6 @@
 // src/components/ConfiguratorView.tsx
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { createXRStore } from '@react-three/xr';
 import { useGraphStore } from '../state/graphStore';
 import { useUiStore } from '../state/uiStore';
 import { useStatusStore } from '../state/statusStore';
@@ -8,6 +9,9 @@ import { CadViewer } from '../viewer/CadViewer';
 import type { PublishedParam } from '../graph/graphTypes';
 import { getKernel } from '../cad/CadKernelService';
 
+// Module-level XR store — einmalig erstellt, teilt Session zwischen Button und Viewer
+const xrStore = createXRStore();
+
 export function ConfiguratorView() {
   const doc = useGraphStore((s) => s.doc);
   const updateNodeParam = useGraphStore((s) => s.updateNodeParam);
@@ -15,6 +19,14 @@ export function ConfiguratorView() {
   const kernel = useStatusStore((s) => s.kernel);
   const compute = useStatusStore((s) => s.compute);
   const hasShapes = useViewerStore((s) => s.meshes.size) > 0;
+
+  // WebXR AR Unterstützung prüfen
+  const [arSupported, setArSupported] = useState(false);
+  useEffect(() => {
+    navigator.xr?.isSessionSupported('immersive-ar')
+      .then(setArSupported)
+      .catch(() => setArSupported(false));
+  }, []);
 
   // Mobile-Tab: "viewer" | "params"
   const [mobileTab, setMobileTab] = useState<'viewer' | 'params'>('viewer');
@@ -101,6 +113,11 @@ export function ConfiguratorView() {
           )}
         </div>
         <div className="configurator__actions">
+          {arSupported && hasShapes && (
+            <button className="btn btn--primary" onClick={() => xrStore.enterAR()}>
+              📷 AR
+            </button>
+          )}
           <button className="btn" onClick={exportSTL} disabled={!hasShapes}>⤓ STL</button>
           <button className="btn btn--ghost" onClick={() => setMode('editor')}>← Editor</button>
         </div>
@@ -125,32 +142,6 @@ export function ConfiguratorView() {
 
       {/* ── Main ── */}
       <main className="configurator__main">
-
-        {/* 3-D Viewer */}
-        <section
-          className={`configurator__viewer${mobileTab === 'params' ? ' cfg-hidden-mobile' : ''}`}
-        >
-          <CadViewer visibleIds={visibleIds} />
-
-          {/* Compute-Pulse: nur wenn bereits Shapes da sind (LoadingOverlay deckt Erstladen ab) */}
-          {isComputing && hasShapes && (
-            <div className="cfg-viewer-computing">
-              <span className="cfg-spinner" />
-              <span>Aktualisiere…</span>
-            </div>
-          )}
-
-          {/* Fit-Button im Viewer */}
-          {hasShapes && (
-            <button
-              className="cfg-fit-btn"
-              title="Ansicht anpassen"
-              onClick={() => useViewerStore.getState().requestFitView()}
-            >
-              ⊡
-            </button>
-          )}
-        </section>
 
         {/* Parameter-Sidebar */}
         <aside
@@ -188,6 +179,32 @@ export function ConfiguratorView() {
             })
           )}
         </aside>
+
+        {/* 3-D Viewer */}
+        <section
+          className={`configurator__viewer${mobileTab === 'params' ? ' cfg-hidden-mobile' : ''}`}
+        >
+          <CadViewer visibleIds={visibleIds} xrStore={xrStore} />
+
+          {/* Compute-Pulse: nur wenn bereits Shapes da sind (LoadingOverlay deckt Erstladen ab) */}
+          {isComputing && hasShapes && (
+            <div className="cfg-viewer-computing">
+              <span className="cfg-spinner" />
+              <span>Aktualisiere…</span>
+            </div>
+          )}
+
+          {/* Fit-Button im Viewer */}
+          {hasShapes && (
+            <button
+              className="cfg-fit-btn"
+              title="Ansicht anpassen"
+              onClick={() => useViewerStore.getState().requestFitView()}
+            >
+              ⊡
+            </button>
+          )}
+        </section>
       </main>
     </div>
   );

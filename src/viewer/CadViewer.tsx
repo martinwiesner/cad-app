@@ -1,6 +1,7 @@
 // src/viewer/CadViewer.tsx
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport, Grid } from '@react-three/drei';
+import { XR, useXR } from '@react-three/xr';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useViewerStore, type ViewerMesh } from '../state/viewerStore';
@@ -264,9 +265,28 @@ function FitViewController({
 }
 
 // ===========================================================================
+//   XrBackgroundManager — löscht Three.js-Hintergrund in AR damit
+//   der Kamera-Pass-through sichtbar wird.
+// ===========================================================================
+function XrBackgroundManager() {
+  const session = useXR((s) => s.session);
+  const { scene } = useThree();
+  useEffect(() => {
+    scene.background = session ? null : new THREE.Color('#eef1f5');
+  }, [session, scene]);
+  return null;
+}
+
+// ===========================================================================
 //   Viewer Hauptkomponente
 // ===========================================================================
-export function CadViewer({ visibleIds }: { visibleIds?: Set<string> } = {}) {
+export function CadViewer({
+  visibleIds,
+  xrStore,
+}: {
+  visibleIds?: Set<string>;
+  xrStore?: ReturnType<typeof import('@react-three/xr').createXRStore>;
+} = {}) {
   const meshesMap = useViewerStore((s) => s.meshes);
   const meshes = useMemo(() => {
     const all = [...meshesMap.values()];
@@ -276,53 +296,64 @@ export function CadViewer({ visibleIds }: { visibleIds?: Set<string> } = {}) {
   const stopPicking = useSelectionStore((s) => s.stopPicking);
   const controlsRef = useRef<any>(null);
 
+  const sceneContent = (
+    <>
+      <SceneSetup />
+      <ambientLight intensity={0.45} />
+      <directionalLight
+        position={[120, 180, 80]}
+        intensity={0.9}
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+      />
+      <directionalLight position={[-80, 60, -80]} intensity={0.25} />
+
+      <Grid
+        args={[600, 600]}
+        cellSize={10}
+        sectionSize={50}
+        cellColor="#a8b0bb"
+        sectionColor="#5a6470"
+        fadeDistance={500}
+        fadeStrength={1.2}
+        infiniteGrid
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0, -0.01]}
+      />
+
+      {meshes.map((m) => (
+        <group key={m.id}>
+          <ShapeMesh mesh={m} />
+          {m.edges && <EdgeOverlay meshId={m.id} edges={m.edges} />}
+        </group>
+      ))}
+
+      <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.12} />
+      <FitViewController controlsRef={controlsRef} meshes={meshes} />
+      <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
+        <GizmoViewport axisColors={['#d24', '#2c5', '#28e']} labelColor="#222" />
+      </GizmoHelper>
+    </>
+  );
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
         shadows
         camera={{ position: [100, -150, 80], fov: 45, near: 0.001, far: 1e8 }}
-        gl={{ logarithmicDepthBuffer: true }}
-        style={{ background: 'linear-gradient(180deg, #f3f5f8 0%, #dde3eb 100%)' }}
+        gl={{ logarithmicDepthBuffer: true, alpha: !!xrStore }}
+        style={xrStore ? undefined : { background: 'linear-gradient(180deg, #f3f5f8 0%, #dde3eb 100%)' }}
         raycaster={{
           params: { Line: { threshold: 1.5 } } as any,
         }}
       >
-        <SceneSetup />
-        <ambientLight intensity={0.45} />
-        <directionalLight
-          position={[120, 180, 80]}
-          intensity={0.9}
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-        />
-        <directionalLight position={[-80, 60, -80]} intensity={0.25} />
-
-        <Grid
-          args={[600, 600]}
-          cellSize={10}
-          sectionSize={50}
-          cellColor="#a8b0bb"
-          sectionColor="#5a6470"
-          fadeDistance={500}
-          fadeStrength={1.2}
-          infiniteGrid
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0, -0.01]}
-        />
-
-        {meshes.map((m) => (
-          <group key={m.id}>
-            <ShapeMesh mesh={m} />
-            {m.edges && <EdgeOverlay meshId={m.id} edges={m.edges} />}
-          </group>
-        ))}
-
-        <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.12} />
-        <FitViewController controlsRef={controlsRef} meshes={meshes} />
-        <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
-          <GizmoViewport axisColors={['#d24', '#2c5', '#28e']} labelColor="#222" />
-        </GizmoHelper>
+        {xrStore ? (
+          <XR store={xrStore}>
+            <XrBackgroundManager />
+            {sceneContent}
+          </XR>
+        ) : sceneContent}
       </Canvas>
 
       {pickingNodeId && (

@@ -13,6 +13,7 @@
   "dependencies": {
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
+    "@react-three/xr": "^6.6.30",
     "@xyflow/react": "^12.3.5",
     "comlink": "^4.4.1",
     "opencascade.js": "^2.0.0-beta.94e2944",
