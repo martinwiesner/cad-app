@@ -879,6 +879,7 @@ canvas { display: block; }
   background: #fff;
   border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
 }
 .configurator__title strong {
   font-size: 18px;
@@ -893,7 +894,9 @@ canvas { display: block; }
 }
 .configurator__status { margin-left: 18px; }
 .configurator__status-pill {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 10px;
   border-radius: 12px;
   font-family: var(--mono);
@@ -901,19 +904,37 @@ canvas { display: block; }
   letter-spacing: 0.02em;
   color: #fff;
 }
-.configurator__status-pill--wait { background: var(--warn); }
+.configurator__status-pill--wait    { background: var(--warn); }
 .configurator__status-pill--computing { background: var(--accent); }
-.configurator__status-pill--ok { background: var(--ok); }
-.configurator__status-pill--error { background: var(--err); }
+.configurator__status-pill--ok      { background: var(--ok); }
+.configurator__status-pill--error   { background: var(--err); }
+
+@keyframes cfg-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.cfg-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  animation: cfg-pulse 1s ease-in-out infinite;
+}
+
 .configurator__actions {
   margin-left: auto;
   display: flex;
   gap: 8px;
 }
+
+/* Mobile tab bar — hidden on desktop */
+.cfg-tabs { display: none; }
+.cfg-hidden-mobile { display: flex !important; }
+
 .configurator__main {
   flex: 1;
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 320px 1fr;
   min-height: 0;
 }
 .configurator__sidebar {
@@ -928,17 +949,83 @@ canvas { display: block; }
   background: var(--bg-2);
   touch-action: none;
 }
-.configurator__group { margin-bottom: 22px; }
+
+/* Compute overlay on 3-D viewer */
+@keyframes cfg-spin {
+  to { transform: rotate(360deg); }
+}
+.cfg-viewer-computing {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(20, 30, 50, 0.72);
+  backdrop-filter: blur(4px);
+  border-radius: 20px;
+  color: #fff;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 10;
+}
+.cfg-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: cfg-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Floating fit button */
+.cfg-fit-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  z-index: 10;
+  transition: background 0.15s;
+}
+.cfg-fit-btn:hover { background: #fff; }
+
+/* Groups */
+.configurator__group { margin-bottom: 6px; }
 .configurator__group-title {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  padding: 6px 2px 6px 0;
+  margin-bottom: 10px;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--ink-2);
   font-family: var(--mono);
-  margin: 0 0 10px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
+  text-align: left;
 }
+.configurator__group-title:hover { color: var(--ink-1); }
+.cfg-chevron { font-size: 9px; opacity: 0.6; }
+
 .configurator__empty {
   padding: 24px 16px;
   text-align: center;
@@ -961,6 +1048,7 @@ canvas { display: block; }
   font-weight: 500;
 }
 
+/* Parameter control */
 .cfg-param {
   margin-bottom: 16px;
   padding-bottom: 14px;
@@ -1002,9 +1090,19 @@ canvas { display: block; }
   color: var(--ink-2);
   font-family: var(--mono);
 }
+.cfg-param__track-wrap { display: flex; flex-direction: column; gap: 2px; }
 .cfg-param__slider {
   width: 100%;
   accent-color: var(--accent);
+  cursor: pointer;
+}
+.cfg-param__range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--ink-3, #9aa4b2);
+  font-family: var(--mono);
+  padding: 0 1px;
 }
 .cfg-param__desc {
   margin: 6px 0 0;
@@ -1406,13 +1504,57 @@ canvas { display: block; }
    ========================================================================= */
 @media (max-width: 640px) {
 
-  /* --- Header: von einer Zeile auf zwei Zeilen umbrechen --- */
+  /* --- Tabs: Modell / Parameter --- */
+  .cfg-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .cfg-tab {
+    flex: 1;
+    padding: 10px 12px;
+    border: none;
+    background: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .cfg-tab--active { color: var(--accent); border-bottom-color: var(--accent); }
+  .cfg-tab__badge {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .cfg-hidden-mobile { display: none !important; }
+
+  /* --- Hauptlayout: Tab-gesteuert, je Panel nimmt 100% --- */
+  .configurator__main { display: flex; flex-direction: column; }
+  .configurator__viewer { flex: 1; min-height: 0; }
+  .configurator__sidebar {
+    flex: 1;
+    border-right: none;
+    overflow-y: auto;
+    padding: 14px;
+    min-height: 0;
+  }
+
+  /* --- Header compact --- */
   .configurator__header {
     flex-wrap: wrap;
-    gap: 8px 16px;
+    gap: 6px 12px;
     padding: 10px 14px;
   }
-  .configurator__title strong { font-size: 16px; }
+  .configurator__title strong { font-size: 15px; }
   .configurator__subtitle { display: none; }
   .configurator__status { margin-left: 0; }
   .configurator__actions {
@@ -1428,42 +1570,22 @@ canvas { display: block; }
     font-size: 12px;
   }
 
-  /* --- Hauptlayout: Viewer oben, Parameter unten (statt nebeneinander) --- */
-  .configurator__main {
-    display: flex;
-    flex-direction: column;
-  }
-  .configurator__viewer {
-    flex: 0 0 45vh;
-    min-height: 220px;
-  }
-  .configurator__sidebar {
-    flex: 1;
-    border-right: none;
-    border-top: 1px solid var(--border);
-    overflow-y: auto;
-    padding: 14px;
-  }
-
   /* --- Parameter: Touch-freundlich --- */
-  .cfg-param { margin-bottom: 18px; padding-bottom: 16px; }
+  .cfg-param { margin-bottom: 20px; padding-bottom: 18px; }
   .cfg-param__label { font-size: 15px; }
   .cfg-param__value input {
-    width: 76px;
-    padding: 7px 9px;
-    font-size: 16px; /* verhindert iOS-Zoom beim Antippen */
+    width: 80px;
+    padding: 8px 10px;
+    font-size: 16px;
     border-radius: 4px;
   }
-  .cfg-param__slider {
-    height: 6px;
-    margin-top: 4px;
-    cursor: pointer;
-  }
-  .cfg-param__desc { font-size: 12px; }
+  .cfg-param__slider { margin-top: 4px; }
+  .cfg-param__range-labels { font-size: 11px; }
+  .cfg-param__desc { font-size: 13px; }
 
-  /* --- Konfigurator-Gruppe --- */
+  /* --- Gruppe --- */
   .configurator__group { margin-bottom: 18px; }
-  .configurator__group-title { font-size: 10.5px; margin-bottom: 12px; }
+  .configurator__group-title { font-size: 11px; padding: 8px 2px; }
 
   /* -----------------------------------------------------------------------
      Editor-Ansicht (minimale Anpassungen — kein perfektes Mobile-UI)

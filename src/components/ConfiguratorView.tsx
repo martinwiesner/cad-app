@@ -1,14 +1,9 @@
 // src/components/ConfiguratorView.tsx
-// Fullscreen-Ansicht fuer Endnutzer ohne CAD-Erfahrung.
-// Linke Sidebar: alle veroeffentlichten Parameter, gruppiert.
-// Hauptbereich: nur der 3D-Viewer.
-// Endnutzer koennen Parameter nur innerhalb der vom Designer festgelegten
-// Grenzen veraendern, und sie sehen weder Graph noch interne Node-Details.
-
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useGraphStore } from '../state/graphStore';
 import { useUiStore } from '../state/uiStore';
 import { useStatusStore } from '../state/statusStore';
+import { useViewerStore } from '../state/viewerStore';
 import { CadViewer } from '../viewer/CadViewer';
 import type { PublishedParam } from '../graph/graphTypes';
 import { getKernel } from '../cad/CadKernelService';
@@ -19,18 +14,30 @@ export function ConfiguratorView() {
   const setMode = useUiStore((s) => s.setMode);
   const kernel = useStatusStore((s) => s.kernel);
   const compute = useStatusStore((s) => s.compute);
+  const hasShapes = useViewerStore((s) => s.meshes.size) > 0;
+
+  // Mobile-Tab: "viewer" | "params"
+  const [mobileTab, setMobileTab] = useState<'viewer' | 'params'>('viewer');
+
+  // Collapsible groups
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (name: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
 
   const visibleIds = useMemo(() => {
     const ids = doc.publishedNodes ?? [];
     return ids.length > 0 ? new Set(ids) : undefined;
   }, [doc.publishedNodes]);
 
-  const published = useMemo(() => {
-    const list = [...(doc.publishedParams ?? [])].sort((a, b) => a.order - b.order);
-    return list;
-  }, [doc.publishedParams]);
+  const published = useMemo(
+    () => [...(doc.publishedParams ?? [])].sort((a, b) => a.order - b.order),
+    [doc.publishedParams],
+  );
 
-  // Gruppieren nach group (undefined -> "Allgemein")
   const grouped = useMemo(() => {
     const map = new Map<string, PublishedParam[]>();
     for (const p of published) {
@@ -41,15 +48,12 @@ export function ConfiguratorView() {
     return [...map.entries()];
   }, [published]);
 
-  // Wert aus dem zugehoerigen Node holen
   const getValue = (p: PublishedParam): unknown => {
     const node = doc.nodes.find((n) => n.id === p.nodeId);
     return node?.params[p.paramKey];
   };
 
-  // STL/GLB exportieren
   const exportSTL = async () => {
-    // Findet das Preview-Shape - identisch zur Toolbar-Logik aus Sprint 3
     const { getLastShapeForNode } = await import('../graph/graphExecution');
     const previews = doc.nodes.filter((n) => n.type === 'preview');
     let handle: string | null = null;
@@ -73,8 +77,11 @@ export function ConfiguratorView() {
     }
   };
 
+  const isComputing = compute === 'computing';
+
   return (
     <div className="configurator">
+      {/* ── Header ── */}
       <header className="configurator__header">
         <div className="configurator__title">
           <strong>{doc.meta?.name ?? 'Konfigurator'}</strong>
@@ -83,8 +90,10 @@ export function ConfiguratorView() {
         <div className="configurator__status">
           {kernel !== 'ready' ? (
             <span className="configurator__status-pill configurator__status-pill--wait">Laden…</span>
-          ) : compute === 'computing' ? (
-            <span className="configurator__status-pill configurator__status-pill--computing">Aktualisiere…</span>
+          ) : isComputing ? (
+            <span className="configurator__status-pill configurator__status-pill--computing">
+              <span className="cfg-status-dot" />Aktualisiere…
+            </span>
           ) : compute === 'error' ? (
             <span className="configurator__status-pill configurator__status-pill--error">Fehler</span>
           ) : (
@@ -92,47 +101,99 @@ export function ConfiguratorView() {
           )}
         </div>
         <div className="configurator__actions">
-          <button className="btn" onClick={exportSTL}>⤓ STL herunterladen</button>
-          <button className="btn btn--ghost" onClick={() => setMode('editor')}>
-            ← zurück zum Editor
-          </button>
+          <button className="btn" onClick={exportSTL} disabled={!hasShapes}>⤓ STL</button>
+          <button className="btn btn--ghost" onClick={() => setMode('editor')}>← Editor</button>
         </div>
       </header>
 
+      {/* ── Mobile tabs ── */}
+      <div className="cfg-tabs">
+        <button
+          className={`cfg-tab${mobileTab === 'viewer' ? ' cfg-tab--active' : ''}`}
+          onClick={() => setMobileTab('viewer')}
+        >
+          Modell
+        </button>
+        <button
+          className={`cfg-tab${mobileTab === 'params' ? ' cfg-tab--active' : ''}`}
+          onClick={() => setMobileTab('params')}
+        >
+          Parameter
+          {published.length > 0 && <span className="cfg-tab__badge">{published.length}</span>}
+        </button>
+      </div>
+
+      {/* ── Main ── */}
       <main className="configurator__main">
-        <aside className="configurator__sidebar">
+
+        {/* 3-D Viewer */}
+        <section
+          className={`configurator__viewer${mobileTab === 'params' ? ' cfg-hidden-mobile' : ''}`}
+        >
+          <CadViewer visibleIds={visibleIds} />
+
+          {/* Compute-Pulse: nur wenn bereits Shapes da sind (LoadingOverlay deckt Erstladen ab) */}
+          {isComputing && hasShapes && (
+            <div className="cfg-viewer-computing">
+              <span className="cfg-spinner" />
+              <span>Aktualisiere…</span>
+            </div>
+          )}
+
+          {/* Fit-Button im Viewer */}
+          {hasShapes && (
+            <button
+              className="cfg-fit-btn"
+              title="Ansicht anpassen"
+              onClick={() => useViewerStore.getState().requestFitView()}
+            >
+              ⊡
+            </button>
+          )}
+        </section>
+
+        {/* Parameter-Sidebar */}
+        <aside
+          className={`configurator__sidebar${mobileTab === 'viewer' ? ' cfg-hidden-mobile' : ''}`}
+        >
           {published.length === 0 ? (
             <div className="configurator__empty">
               <strong>Noch keine Parameter veröffentlicht.</strong>
               <p>Wechsle in den Editor, wähle einen Parameter aus und klicke <em>☆ veröffentlichen</em>.</p>
-              <button className="btn btn--primary" onClick={() => setMode('editor')}>
-                Zum Editor
-              </button>
+              <button className="btn btn--primary" onClick={() => setMode('editor')}>Zum Editor</button>
             </div>
           ) : (
-            grouped.map(([groupName, params]) => (
-              <section key={groupName} className="configurator__group">
-                <h3 className="configurator__group-title">{groupName}</h3>
-                {params.map((p) => (
-                  <ConfiguratorParam
-                    key={p.id}
-                    param={p}
-                    value={getValue(p)}
-                    onChange={(v) => updateNodeParam(p.nodeId, p.paramKey, v)}
-                  />
-                ))}
-              </section>
-            ))
+            grouped.map(([groupName, params]) => {
+              const collapsed = collapsedGroups.has(groupName);
+              return (
+                <section key={groupName} className="configurator__group">
+                  <button
+                    className="configurator__group-title"
+                    onClick={() => toggleGroup(groupName)}
+                    aria-expanded={!collapsed}
+                  >
+                    <span>{groupName}</span>
+                    <span className="cfg-chevron">{collapsed ? '▶' : '▼'}</span>
+                  </button>
+                  {!collapsed && params.map((p) => (
+                    <ConfiguratorParam
+                      key={p.id}
+                      param={p}
+                      value={getValue(p)}
+                      onChange={(v) => updateNodeParam(p.nodeId, p.paramKey, v)}
+                    />
+                  ))}
+                </section>
+              );
+            })
           )}
         </aside>
-
-        <section className="configurator__viewer">
-          <CadViewer visibleIds={visibleIds} />
-        </section>
       </main>
     </div>
   );
 }
+
+// ─── Parameter-Control ────────────────────────────────────────────────────────
 
 function ConfiguratorParam({
   param, value, onChange,
@@ -141,14 +202,15 @@ function ConfiguratorParam({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  // Wir gehen davon aus, dass nur skalare Werte veroeffentlicht sind.
-  // Numerische Werte werden geklemmt - der Endnutzer kann nicht ausserhalb editieren.
   const v = typeof value === 'number' ? value : Number(value) || 0;
+  const hasRange = param.min !== undefined && param.max !== undefined
+    && isFinite(param.min) && isFinite(param.max);
   const min = param.min ?? -Infinity;
   const max = param.max ?? Infinity;
   const step = param.step ?? 1;
-
   const clamp = (n: number) => Math.max(min, Math.min(max, n));
+
+  const pct = hasRange ? ((v - min) / (max - min)) * 100 : 0;
 
   return (
     <div className="cfg-param">
@@ -158,25 +220,34 @@ function ConfiguratorParam({
           <input
             type="number"
             value={v}
-            min={min === -Infinity ? undefined : min}
-            max={max === Infinity ? undefined : max}
+            min={isFinite(min) ? min : undefined}
+            max={isFinite(max) ? max : undefined}
             step={step}
             onChange={(e) => onChange(clamp(parseFloat(e.target.value) || 0))}
           />
           {param.unit && <span className="cfg-param__unit">{param.unit}</span>}
         </div>
       </div>
-      {min !== -Infinity && max !== Infinity && (
-        <input
-          className="cfg-param__slider"
-          type="range"
-          value={v}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-        />
+
+      {hasRange && (
+        <div className="cfg-param__track-wrap">
+          <input
+            className="cfg-param__slider"
+            type="range"
+            value={v}
+            min={min}
+            max={max}
+            step={step}
+            style={{ '--pct': `${pct}%` } as React.CSSProperties}
+            onChange={(e) => onChange(parseFloat(e.target.value))}
+          />
+          <div className="cfg-param__range-labels">
+            <span>{min}{param.unit ?? ''}</span>
+            <span>{max}{param.unit ?? ''}</span>
+          </div>
+        </div>
       )}
+
       {param.description && <p className="cfg-param__desc">{param.description}</p>}
     </div>
   );
