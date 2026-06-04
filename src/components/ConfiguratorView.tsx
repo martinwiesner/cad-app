@@ -31,6 +31,18 @@ export function ConfiguratorView() {
   // Mobile bottom-sheet: zugeklappt by default
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  // Fit beim Öffnen + bei Fenster-Resize (schmales Fenster → Kamera passt sich an)
+  useEffect(() => {
+    useViewerStore.getState().requestFitView();
+    let t: ReturnType<typeof setTimeout>;
+    const onResize = () => {
+      clearTimeout(t);
+      t = setTimeout(() => useViewerStore.getState().requestFitView(), 250);
+    };
+    window.addEventListener('resize', onResize);
+    return () => { window.removeEventListener('resize', onResize); clearTimeout(t); };
+  }, []);
+
   // Collapsible groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toggleGroup = (name: string) =>
@@ -114,10 +126,10 @@ export function ConfiguratorView() {
         </div>
         <div className="configurator__actions">
           {arSupported && hasShapes && (
-            <button className="btn btn--primary" onClick={() => xrStore.enterAR()}>
-              📷 AR
-            </button>
+            <button className="btn btn--primary" onClick={() => xrStore.enterAR()}>📷 AR</button>
           )}
+          <button className="btn" disabled={!hasShapes}
+            onClick={() => useViewerStore.getState().requestFitView()} title="Ansicht anpassen">⊡ Fit</button>
           <button className="btn" onClick={exportSTL} disabled={!hasShapes}>⤓ STL</button>
           <button className="btn btn--ghost" onClick={() => setMode('editor')}>← Editor</button>
         </div>
