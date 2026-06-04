@@ -931,7 +931,7 @@ canvas { display: block; }
 .cfg-tabs { display: none; }
 .cfg-hidden-mobile { display: flex !important; }
 
-/* Viewer füllt den gesamten Hauptbereich, Sidebar schwebt als Glasscheibe drüber */
+/* Viewer füllt den gesamten Hauptbereich — Sidebar schwebt als Glasscheibe drüber (desktop) */
 .configurator__main {
   flex: 1;
   position: relative;
