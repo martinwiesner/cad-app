@@ -20,12 +20,9 @@ export function ConfiguratorView() {
   const compute = useStatusStore((s) => s.compute);
   const hasShapes = useViewerStore((s) => s.meshes.size) > 0;
 
-  // WebXR AR Unterstützung prüfen
   const [arSupported, setArSupported] = useState(false);
   useEffect(() => {
-    navigator.xr?.isSessionSupported('immersive-ar')
-      .then(setArSupported)
-      .catch(() => setArSupported(false));
+    navigator.xr?.isSessionSupported('immersive-ar').then(setArSupported).catch(() => {});
   }, []);
 
   // Mobile bottom-sheet: zugeklappt by default
@@ -126,7 +123,7 @@ export function ConfiguratorView() {
         </div>
         <div className="configurator__actions">
           {arSupported && hasShapes && (
-            <button className="btn btn--primary" onClick={() => xrStore.enterAR()}>📷 AR</button>
+            <button className="btn btn--primary" onClick={() => xrStore.enterAR()}>AR</button>
           )}
           <button className="btn" disabled={!hasShapes}
             onClick={() => useViewerStore.getState().requestFitView()} title="Ansicht anpassen">⊡ Fit</button>
