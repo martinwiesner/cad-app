@@ -22,6 +22,11 @@ export function ConfiguratorView() {
 
   const [arSupported, setArSupported] = useState(false);
   useEffect(() => {
+    // Permissions-Policy prüfen bevor isSessionSupported aufgerufen wird —
+    // GitHub Pages erlaubt xr-spatial-tracking nicht, der Browser würde sonst
+    // eine Violation loggen.
+    const policy = (document as any).permissionsPolicy ?? (document as any).featurePolicy;
+    if (policy && !policy.allowsFeature('xr-spatial-tracking')) return;
     navigator.xr?.isSessionSupported('immersive-ar').then(setArSupported).catch(() => {});
   }, []);
 
