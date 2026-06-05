@@ -208,8 +208,27 @@ function fitCamera(
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
   const cz = (minZ + maxZ) / 2;
-  const diag = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1);
-  const dist = diag * 1.8;
+
+  // Bounding-Sphere-Radius — stabiler als Diagonale allein
+  const radius = Math.max(
+    Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2,
+    1,
+  );
+
+  // Distanz so wählen dass die Sphere komplett ins Frustum passt —
+  // dabei sowohl vertikalen als auch horizontalen FOV berücksichtigen,
+  // damit das Modell bei schmalem Fenster nicht abgeschnitten wird.
+  let dist: number;
+  if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
+    const cam = camera as THREE.PerspectiveCamera;
+    const fovY = (cam.fov * Math.PI) / 180;
+    const fovX = 2 * Math.atan(Math.tan(fovY / 2) * cam.aspect);
+    const distV = radius / Math.tan(fovY / 2);
+    const distH = radius / Math.tan(fovX / 2);
+    dist = Math.max(distV, distH) * 1.2;
+  } else {
+    dist = radius * 3;
+  }
 
   const dx = camera.position.x - cx;
   const dy = camera.position.y - cy;
@@ -217,11 +236,10 @@ function fitCamera(
   const len = Math.hypot(dx, dy, dz) || 1;
   const nx = dx / len, ny = dy / len, nz = dz / len;
 
-  // Z ist Hochachse — sicherstellen dass Kamera von oben schaut
   camera.position.set(
     cx + nx * dist,
     cy + ny * dist,
-    cz + Math.max(nz * dist, diag * 0.25),
+    cz + Math.max(nz * dist, radius * 0.15),
   );
 
   if (controlsRef.current) {
