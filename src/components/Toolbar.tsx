@@ -125,6 +125,26 @@ export function Toolbar() {
     }
   };
 
+  const importStl = async () => {
+    const file = await pickFile('.stl,model/stl,application/sla,application/vnd.ms-pki.stl');
+    if (!file) return;
+    setBusy('STL-Import…');
+    useStatusStore.getState().log('info', `STL-Import: ${file.name} (${formatBytes(file.size)})`);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const assetId = await useAssetStore.getState().addAsset(file.name, bytes);
+      addNode('importedStl', { x: 80, y: 80 }, { assetId, filename: file.name });
+      useStatusStore.getState().log('info', `Asset gespeichert: ${assetId}`);
+      run().then(() => useViewerStore.getState().requestFitView()).catch(console.error);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? String(e);
+      useStatusStore.getState().log('error', `STL-Import fehlgeschlagen: ${msg}`);
+      alert(`STL-Import fehlgeschlagen:\n${msg}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const findActiveShape = (): { handle: ShapeHandle; nodeId: string } | null => {
     const doc = useGraphStore.getState().doc;
     const previews = doc.nodes.filter((n) => n.type === 'preview');
@@ -230,6 +250,7 @@ export function Toolbar() {
       <div className="toolbar__group toolbar__desktop-only">
         <button className="btn" onClick={importSvg} disabled={kernel !== 'ready' || !!busy}>📐 SVG importieren</button>
         <button className="btn" onClick={importStep} disabled={kernel !== 'ready' || !!busy}>📥 STEP importieren</button>
+        <button className="btn" onClick={importStl} disabled={kernel !== 'ready' || !!busy}>📥 STL importieren</button>
         <button className="btn" onClick={() => useViewerStore.getState().requestFitView()} disabled={!hasShapes} title="Kamera auf gesamte Geometrie ausrichten">⊡ Fit</button>
         <button className="btn" onClick={exportStl} disabled={!hasShapes || !!busy}>⤓ STL</button>
         <button className="btn" onClick={exportGlb} disabled={!hasShapes || !!busy}>⤓ GLB</button>

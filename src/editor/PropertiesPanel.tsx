@@ -41,6 +41,7 @@ export function PropertiesPanel() {
         {node.type === 'sketch' ? <SketchControls node={node} /> : null}
         {node.type === 'sketch' ? <SketchConstraintControls node={node} /> : null}
         {node.type === 'importedStep' ? <ImportedStepControls node={node} /> : null}
+        {node.type === 'importedStl' ? <ImportedStlControls node={node} /> : null}
         {spec.params.some((p) => p.kind === 'edgeList') ? <EdgeListControls node={node} /> : null}
       </div>
     </div>
@@ -397,6 +398,50 @@ function ImportedStepControls({ node }: { node: GraphNode }) {
       />
       <button className="btn" onClick={() => fileRef.current?.click()}>
         📂 STEP-Datei wählen
+      </button>
+    </div>
+  );
+}
+
+function ImportedStlControls({ node }: { node: GraphNode }) {
+  const update = useGraphStore((s) => s.updateNodeParam);
+  const assets = useAssetStore((s) => s.assets);
+  const addAsset = useAssetStore((s) => s.addAsset);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const currentId = String(node.params.assetId ?? '');
+  const current = currentId ? assets.get(currentId) : undefined;
+
+  const handleFile = async (file: File) => {
+    const buf = await file.arrayBuffer();
+    const id = await addAsset(file.name, new Uint8Array(buf));
+    update(node.id, 'assetId', id);
+    update(node.id, 'filename', file.name);
+  };
+
+  return (
+    <div className="step-controls">
+      <div className="step-controls__current">
+        {current ? (
+          <>
+            <div><strong>{current.filename}</strong></div>
+            <div className="step-controls__meta">{(current.size / 1024).toFixed(1)} KB</div>
+          </>
+        ) : (
+          <div className="step-controls__empty">noch keine Datei geladen</div>
+        )}
+      </div>
+      <input
+        type="file"
+        ref={fileRef}
+        accept=".stl,.STL"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f).catch(console.error);
+        }}
+      />
+      <button className="btn" onClick={() => fileRef.current?.click()}>
+        📂 STL-Datei wählen
       </button>
     </div>
   );

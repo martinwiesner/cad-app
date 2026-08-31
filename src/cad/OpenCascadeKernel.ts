@@ -24,6 +24,7 @@ import { meshToStlBinary } from './exportStl';
 import { meshToGlb } from './exportGlb';
 import { exportStepBytes } from './exportStep';
 import { importStepBytes } from './stepImport';
+import { importStlBytes } from './stlImport';
 import {
   CadError,
   type BoxParams,
@@ -219,6 +220,10 @@ export class OpenCascadeKernel implements ICadKernel {
   // ----- IO -------------------------------------------------------------------
   async importStep(bytes: Uint8Array): Promise<ShapeHandle> {
     return this.registry.add(importStepBytes(this.requireOc(), bytes));
+  }
+
+  async importStl(bytes: Uint8Array): Promise<ShapeHandle> {
+    return this.registry.add(importStlBytes(this.requireOc(), bytes));
   }
 
   /** Trianguliert in hoher Qualitaet und liefert binaere STL-Bytes. */

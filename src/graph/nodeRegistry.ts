@@ -186,6 +186,17 @@ export const NODE_SPECS: Record<string, NodeSpec> = {
       { key: 'filename', label: 'Dateiname', kind: 'string', default: '' },
     ],
   },
+  importedStl: {
+    type: 'importedStl',
+    category: 'primitive',
+    label: 'STL Import',
+    inputs: [],
+    outputs: [{ id: 'shape', label: 'shape', dataType: 'shape' }],
+    params: [
+      { key: 'assetId', label: 'Asset ID', kind: 'string', default: '' },
+      { key: 'filename', label: 'Dateiname', kind: 'string', default: '' },
+    ],
+  },
 
   // ===== Operation =========================================================
   difference: {

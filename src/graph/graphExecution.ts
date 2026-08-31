@@ -473,6 +473,34 @@ async function executeNode(node: GraphNode, inputs: Record<string, unknown>, doc
       return { values: { shape: h }, ownsShape: h };
     }
 
+    case 'importedStl': {
+      const assetId = (inputs.assetId as string) ?? '';
+      if (!assetId) throw new Error('importedStl: kein Asset zugewiesen');
+      const bytes = await useAssetStore.getState().getBytes(assetId);
+      if (!bytes) throw new Error(`importedStl: Asset ${assetId} nicht gefunden`);
+      const h = await kernel.importStl(bytes);
+
+      // Bounding Box als Diagnose loggen - STL ist reines Mesh, daher kein
+      // Face/Edge-Count wie bei STEP (waere ohnehin nicht aussagekraeftig).
+      try {
+        const meta = await kernel.getMeta(h);
+        const { bbox } = meta;
+        const sx = (bbox.max[0] - bbox.min[0]).toFixed(1);
+        const sy = (bbox.max[1] - bbox.min[1]).toFixed(1);
+        const sz = (bbox.max[2] - bbox.min[2]).toFixed(1);
+        const cx = ((bbox.min[0] + bbox.max[0]) / 2).toFixed(1);
+        const cy = ((bbox.min[1] + bbox.max[1]) / 2).toFixed(1);
+        const cz = ((bbox.min[2] + bbox.max[2]) / 2).toFixed(1);
+        useStatusStore.getState().log(
+          'info',
+          `STL geladen: Größe ${sx}×${sy}×${sz} · Mittelpunkt (${cx}, ${cy}, ${cz}) · ` +
+          'reines Netz ohne parametrische Flächen (Boolesche Operationen können fehlschlagen)',
+        );
+      } catch { /* Meta-Fehler nicht propagieren */ }
+
+      return { values: { shape: h }, ownsShape: h };
+    }
+
     case 'filletEdges': {
       const shape = requireShape(inputs.shape, 'filletEdges.shape');
       const edgeIds = Array.isArray(inputs.edgeIds) ? (inputs.edgeIds as string[]) : [];

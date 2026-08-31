@@ -95,6 +95,7 @@ export type CadErrorCode =
   | 'fillet_too_large'
   | 'chamfer_failed'
   | 'step_parse_failed'
+  | 'stl_parse_failed'
   | 'empty_shape'
   | 'triangulation_failed'
   | 'unknown_shape_handle'
@@ -198,6 +199,7 @@ export interface ICadKernel {
   chamferEdges(shape: ShapeHandle, edgeIds: string[], distance: number): Promise<ShapeHandle>;
 
   importStep(bytes: Uint8Array): Promise<ShapeHandle>;
+  importStl(bytes: Uint8Array): Promise<ShapeHandle>;
   exportStl(shape: ShapeHandle, opt?: MeshOptions): Promise<Uint8Array>;
   exportGlb(shape: ShapeHandle, opt?: MeshOptions): Promise<Uint8Array>;
   exportStep(shape: ShapeHandle): Promise<Uint8Array>;
