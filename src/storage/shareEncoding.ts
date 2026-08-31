@@ -17,6 +17,10 @@
 // Abwaertskompatibilitaet: alte Shares (reines JSON mit base64-eingebetteten Assets,
 // kein Format-Marker) werden weiterhin erkannt und dekodiert (siehe decodeLegacyJson).
 //
+// Zusaetzlich: STEP-Assets werden vor dem Packen auf reduzierte Zahlen-Praezision
+// gebracht (siehe cad/stepPrecision.ts) - betrifft nur die geteilte Kopie, nicht
+// den kanonisch in IndexedDB gespeicherten Asset.
+//
 // Praktische Grenzen:
 //   - URL-Fragment (#) kommt nicht zum Server, also kein Server-Logging
 //   - Browser unterstuetzen bis ~64KB Fragment problemlos, einige bis MBs
@@ -24,6 +28,7 @@
 
 import type { GraphDocument } from '../graph/graphTypes';
 import { useAssetStore } from '../state/assetStore';
+import { compactStepBytesForShare, looksLikeStepAsset } from '../cad/stepPrecision';
 
 /** Wert in Bytes ab dem wir eine Warnung beim Export geben. */
 export const SHARE_SIZE_WARN = 16 * 1024;
@@ -110,7 +115,14 @@ export async function encodeShareUrl(
       console.warn(`[share] Asset ${id} nicht verfuegbar - wird im Share weggelassen`);
       continue;
     }
-    rawAssets.push({ id, filename: meta.filename, mime: meta.mime, bytes });
+    // STEP ist Text (ASCII/EXPRESS) - fuers Teilen die Zahlen-Praezision kappen,
+    // das spart oft spuerbar Platz ohne merkliche Geometrieveraenderung. Betrifft
+    // nur die geteilte Kopie, nicht den kanonisch gespeicherten Asset.
+    const packedBytes = looksLikeStepAsset(meta.filename, meta.mime)
+      ? compactStepBytesForShare(bytes)
+      : bytes;
+
+    rawAssets.push({ id, filename: meta.filename, mime: meta.mime, bytes: packedBytes });
   }
 
   const header: HeaderV2 = {
