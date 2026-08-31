@@ -1,12 +1,21 @@
 // src/storage/shareEncoding.ts
 // Kodiert ein Projekt-Document fuer den Versand via URL.
 //
-// Strategie:
-//   1. Document inkl. Assets (Base64-eingebettete STEP-Bytes) zu JSON
-//   2. JSON -> UTF-8 -> gzip (CompressionStream)
-//   3. gzip -> base64url
+// Strategie (v2, aktuell):
+//   1. Header (Document + Asset-Metadaten) -> JSON -> UTF-8
+//   2. Container = [0x01][4B Header-Laenge LE][Header-Bytes][Asset1-Rohbytes][Asset2-Rohbytes]...
+//   3. Container (roh, KEIN Base64!) -> gzip (CompressionStream)
+//   4. gzip -> base64url
 //
-// Dekodierung in der umgekehrten Reihenfolge.
+// Frueher wurden Asset-Bytes vor dem Zusammenbau zusaetzlich einzeln base64-kodiert
+// und erst dann das gesamte JSON gezippt. Das kostete doppelt: Base64 blaeht Binaerdaten
+// um ~33% auf, *bevor* gzip drankommt, und gzip komprimiert Base64-Text (wirkt fast wie
+// Zufallsdaten) deutlich schlechter als dieselben Bytes in Rohform. Jetzt werden die
+// Asset-Rohbytes direkt in den Container gepackt und genau einmal (das gesamte Ergebnis)
+// base64url-kodiert.
+//
+// Abwaertskompatibilitaet: alte Shares (reines JSON mit base64-eingebetteten Assets,
+// kein Format-Marker) werden weiterhin erkannt und dekodiert (siehe decodeLegacyJson).
 //
 // Praktische Grenzen:
 //   - URL-Fragment (#) kommt nicht zum Server, also kein Server-Logging
@@ -21,12 +30,17 @@ export const SHARE_SIZE_WARN = 16 * 1024;
 /** Harte Grenze - wir liefern trotzdem, aber sehr lange URLs koennen in Chats abgeschnitten werden. */
 export const SHARE_SIZE_LIMIT = 1 * 1024 * 1024;
 
-/** Wenn das Projekt diese Assets benoetigt - mit Bytes eingebettet. */
+/** Erster Byte des unkomprimierten Containers bei neuem (v2) Format.
+ *  JSON-Text (altes Format) kann nie mit diesem Byte beginnen (JSON startet immer mit
+ *  einem druckbaren ASCII-Zeichen wie '{', '[', '"', einer Ziffer, oder Whitespace). */
+const FORMAT_MARKER_V2 = 0x01;
+
+/** Ein Asset nach dem Dekodieren - Rohbytes, kein Base64-Umweg mehr noetig. */
 export interface SharedAsset {
   id: string;
   filename: string;
   mime: string;
-  base64: string;
+  bytes: Uint8Array;
 }
 
 export interface SharedDocument {
@@ -35,6 +49,35 @@ export interface SharedDocument {
   /** Konfigurator-Modus beim Empfaenger? */
   openInConfigurator: boolean;
   /** Erstellungszeit (fuer Diagnose). */
+  createdAt: string;
+}
+
+/** Nur Metadaten - landen im Header, die Rohbytes folgen dahinter im Container. */
+interface AssetMeta {
+  id: string;
+  filename: string;
+  mime: string;
+  length: number;
+}
+
+interface HeaderV2 {
+  doc: GraphDocument;
+  assets: AssetMeta[];
+  openInConfigurator: boolean;
+  createdAt: string;
+}
+
+/** Altes Wire-Format (vor v2): Assets als Base64-String direkt im JSON. */
+interface LegacySharedAsset {
+  id: string;
+  filename: string;
+  mime: string;
+  base64: string;
+}
+interface LegacySharedDocument {
+  doc: GraphDocument;
+  assets: LegacySharedAsset[];
+  openInConfigurator: boolean;
   createdAt: string;
 }
 
@@ -54,9 +97,9 @@ export async function encodeShareUrl(
     }
   }
 
-  // Asset-Bytes aus IndexedDB holen + base64 encoden
+  // Asset-Rohbytes aus IndexedDB holen - KEIN Base64 hier, das kostet nur Groesse.
   const assetStore = useAssetStore.getState();
-  const assets: SharedAsset[] = [];
+  const rawAssets: { id: string; filename: string; mime: string; bytes: Uint8Array }[] = [];
   for (const id of usedAssetIds) {
     const meta = assetStore.assets.get(id);
     const bytes = await assetStore.getBytes(id);
@@ -67,23 +110,33 @@ export async function encodeShareUrl(
       console.warn(`[share] Asset ${id} nicht verfuegbar - wird im Share weggelassen`);
       continue;
     }
-    assets.push({
-      id,
-      filename: meta.filename,
-      mime: meta.mime,
-      base64: bytesToBase64(bytes),
-    });
+    rawAssets.push({ id, filename: meta.filename, mime: meta.mime, bytes });
   }
 
-  const payload: SharedDocument = {
+  const header: HeaderV2 = {
     doc,
-    assets,
+    assets: rawAssets.map((a) => ({ id: a.id, filename: a.filename, mime: a.mime, length: a.bytes.byteLength })),
     openInConfigurator: !!options.openInConfigurator,
     createdAt: new Date().toISOString(),
   };
 
-  const json = JSON.stringify(payload);
-  const compressed = await gzipCompress(new TextEncoder().encode(json));
+  const headerBytes = new TextEncoder().encode(JSON.stringify(header));
+  const totalAssetBytes = rawAssets.reduce((sum, a) => sum + a.bytes.byteLength, 0);
+
+  const container = new Uint8Array(1 + 4 + headerBytes.byteLength + totalAssetBytes);
+  let offset = 0;
+  container[offset] = FORMAT_MARKER_V2;
+  offset += 1;
+  new DataView(container.buffer).setUint32(offset, headerBytes.byteLength, true);
+  offset += 4;
+  container.set(headerBytes, offset);
+  offset += headerBytes.byteLength;
+  for (const a of rawAssets) {
+    container.set(a.bytes, offset);
+    offset += a.bytes.byteLength;
+  }
+
+  const compressed = await gzipCompress(container);
   const encoded = bytesToBase64Url(compressed);
 
   const sizeBytes = encoded.length;
@@ -99,13 +152,51 @@ export async function encodeShareUrl(
 
 /**
  * Liest ein Share-Payload aus dem URL-Fragment und stellt es wieder her.
+ * Erkennt sowohl das aktuelle Binaer-Containerformat (v2) als auch alte,
+ * rein JSON-basierte Shares mit base64-eingebetteten Assets.
  */
 export async function decodeShareUrl(encoded: string): Promise<SharedDocument> {
   const compressed = base64UrlToBytes(encoded);
   const decompressed = await gzipDecompress(compressed);
-  const json = new TextDecoder().decode(decompressed);
-  const payload = JSON.parse(json) as SharedDocument;
-  return payload;
+
+  if (decompressed.length > 0 && decompressed[0] === FORMAT_MARKER_V2) {
+    return decodeV2Container(decompressed);
+  }
+  return decodeLegacyJson(decompressed);
+}
+
+function decodeV2Container(bytes: Uint8Array): SharedDocument {
+  let offset = 1;
+  const headerLen = new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0, true);
+  offset += 4;
+  const headerBytes = bytes.subarray(offset, offset + headerLen);
+  offset += headerLen;
+  const header = JSON.parse(new TextDecoder().decode(headerBytes)) as HeaderV2;
+
+  const assets: SharedAsset[] = [];
+  for (const meta of header.assets) {
+    const assetBytes = bytes.subarray(offset, offset + meta.length);
+    offset += meta.length;
+    assets.push({ id: meta.id, filename: meta.filename, mime: meta.mime, bytes: assetBytes });
+  }
+
+  return {
+    doc: header.doc,
+    assets,
+    openInConfigurator: header.openInConfigurator,
+    createdAt: header.createdAt,
+  };
+}
+
+function decodeLegacyJson(bytes: Uint8Array): SharedDocument {
+  const json = new TextDecoder().decode(bytes);
+  const payload = JSON.parse(json) as LegacySharedDocument;
+  return {
+    doc: payload.doc,
+    assets: payload.assets.map((a) => ({ id: a.id, filename: a.filename, mime: a.mime, bytes: base64ToBytes(a.base64) })),
+    openInConfigurator: payload.openInConfigurator,
+    createdAt: payload.createdAt,
+  };
 }
 
 /**
@@ -122,8 +213,7 @@ export async function applySharedDocument(shared: SharedDocument): Promise<Graph
   // Wichtig: die referenzierten IDs in importedStep-Nodes muessen ggf. umgeschrieben werden.
   const idMapping = new Map<string, string>();
   for (const a of shared.assets) {
-    const bytes = base64ToBytes(a.base64);
-    const newId = await assetStore.addAsset(a.filename, bytes, a.mime);
+    const newId = await assetStore.addAsset(a.filename, a.bytes, a.mime);
     idMapping.set(a.id, newId);
   }
 
@@ -198,18 +288,6 @@ function concatBytes(chunks: Uint8Array[]): Uint8Array {
   return out;
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
-  // btoa erwartet binary string. Bei sehr grossen Inputs in chunks arbeiten,
-  // sonst Stack-Overflow auf Safari.
-  let binary = '';
-  const CHUNK = 32768;
-  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
-    const slice = bytes.subarray(i, Math.min(i + CHUNK, bytes.byteLength));
-    binary += String.fromCharCode.apply(null, slice as any);
-  }
-  return btoa(binary);
-}
-
 function base64ToBytes(b64: string): Uint8Array {
   const binary = atob(b64);
   const out = new Uint8Array(binary.length);
@@ -218,7 +296,15 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {
-  return bytesToBase64(bytes)
+  // btoa erwartet binary string. Bei sehr grossen Inputs in chunks arbeiten,
+  // sonst Stack-Overflow auf Safari.
+  let binary = '';
+  const CHUNK = 32768;
+  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+    const slice = bytes.subarray(i, Math.min(i + CHUNK, bytes.byteLength));
+    binary += String.fromCharCode.apply(null, slice as unknown as number[]);
+  }
+  return btoa(binary)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
